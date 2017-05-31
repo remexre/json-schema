@@ -16,6 +16,7 @@ branch = "master"
 repository = "remexre/json-schema"
 
 [dependencies]
+either = "^1.1.0"
 json-pointer = "^0.3.1"
 lazy_static = { version = "^0.2.8", optional = true }
 regex = "^0.2.2"

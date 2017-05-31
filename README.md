@@ -15,3 +15,5 @@ A crate for parsing and using JSON Schemas, as specified in
  - `JsonSchema` does not implement `Deserialize` or `Serialize`, although it does provide
    [`JsonSchema::from_value`](https://docs.rs/json-schema/*/json_schema/struct.JsonSchema.html#method.from_value) and
    [`JsonSchema::to_value`](https://docs.rs/json-schema/*/json_schema/struct.JsonSchema.html#method.to_value).
+ - Does not implement the `default` or `examples` keywords.
+ - Does not implement the `format` keyword.

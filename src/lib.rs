@@ -10,6 +10,7 @@
 
 #![deny(missing_docs)]
 
+extern crate either;
 extern crate json_pointer;
 #[cfg(feature = "metaschema")]
 #[macro_use]
