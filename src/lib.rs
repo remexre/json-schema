@@ -14,10 +14,19 @@ extern crate json_pointer;
 #[cfg(feature = "metaschema")]
 #[macro_use]
 extern crate lazy_static;
+extern crate regex;
 extern crate serde_json;
+extern crate url;
 
 mod errors;
 mod schema;
 
 pub use errors::{FromValueError, ValidationError};
 pub use schema::JsonSchema;
+
+#[cfg(feature = "metaschema")]
+pub mod metaschema {
+    //! The metaschema used for validation.
+
+    pub use schema::{METASCHEMA, METASCHEMA_URI, METASCHEMA_VALUE};
+}
