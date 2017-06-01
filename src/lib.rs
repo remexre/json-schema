@@ -23,7 +23,7 @@ mod errors;
 mod schema;
 
 pub use errors::{FromValueError, ValidationError};
-pub use schema::JsonSchema;
+pub use schema::{Condition, JsonSchema, Type};
 
 #[cfg(feature = "metaschema")]
 pub mod metaschema {

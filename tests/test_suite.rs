@@ -36,18 +36,46 @@ fn test_suite() {
             .unwrap_or(false))
         .map(|f| f.path());
     for path in all_tests {
-        let base_uri = Url::from_file_path(&path).unwrap();
-        let file = File::open(path).unwrap();
-        let tests: Vec<Test> = from_reader(file).unwrap();
+        let path = path.canonicalize()
+            .expect("Couldn't canonicalize path");
+        let base_uri = Url::from_file_path(&path)
+            .expect("Couldn't create URI for test");
+        let file = File::open(path)
+            .expect("Couldn't open test file");
+        let tests: Vec<Test> = from_reader(file)
+            .expect("Couldn't read test cases");
         for (i, test) in tests.into_iter().enumerate() {
-            let uri = base_uri.join(&format!("#/{}/schema", i)).unwrap();
+            let uri = base_uri.join(&format!("#/{}/schema", i))
+                .expect("Couldn't create schema URI");
             test_one(uri, test);
         }
     }
 }
 
 fn test_one(uri: Url, test: Test) {
-    let schema = JsonSchema::from_value(&uri, &test.schema);
-    println!("{:?}", test);
-    unimplemented!();
+    let schema = JsonSchema::from_value(uri, &test.schema)
+        .expect("Invalid schema");
+    for case in test.tests {
+        test_case(&schema, case)
+    }
+}
+
+fn test_case(schema: &JsonSchema, case: TestCase) {
+    let result = schema.validate(&case.data);
+    if case.valid != result.is_ok() {
+        let got = if let Err(err) = result {
+            format!("failed with {:?}", err)
+        } else {
+            "succeeded".to_string()
+        };
+        let should = if case.valid {
+            "succeeded"
+        } else {
+            "failed"
+        };
+        panic!("Test '{}' {}, should have {}.",
+            case.description,
+            got,
+            should);
+    }
 }

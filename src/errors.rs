@@ -1,3 +1,4 @@
+use schema::Condition;
 use serde_json::Value;
 use url::Url;
 use url::ParseError as UrlParseError;
@@ -8,8 +9,11 @@ use url::ParseError as UrlParseError;
 ///
 /// The first value in each variant is the JSON value that failed to convert to
 /// a schema or subschema.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum FromValueError {
+    /// A regex failed to compile.
+    BadPattern(::regex::Error),
+
     /// A value had an invalid `$id` keyword.
     ///
     /// The second value is the value of the `$id` keyword, and the third value
@@ -23,7 +27,13 @@ pub enum FromValueError {
     ///
     /// The second value is the keyword, and the third was the value that was
     /// present instead.
-    InvalidKeywordType(Value, &'static str, Value),
+    InvalidKeywordType(Value, String, Value),
+
+    /// A value had an invalid value based on the specification.
+    ///
+    /// The second value is the keyword, and the third was the value that was
+    /// present instead.
+    InvalidKeywordValue(Value, String, Value),
 
     /// A subschema was invalid, or the schema was invalid at the top level.
     ///
@@ -63,4 +73,9 @@ pub enum FromValueError {
 /// against a [`JsonSchema`](struct.JsonSchema.html).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValidationError {
+    /// A condition specified in a schema was not met.
+    ConditionFailed(Condition),
+    /// A value was provided somewhere no value can exist, for example to the
+    /// `false` schema.
+    NoValuesPass(Value),
 }
