@@ -326,7 +326,7 @@ lazy_static! {
 
     /// The JSON value representing the draft-06 metaschema.
     pub static ref METASCHEMA_VALUE: Value = {
-        let src = include_str!("../../metaschema.json");
+        let src = include_str!("../metaschema.json");
         ::serde_json::from_str(src)
             .expect("Failed to parse metaschema")
     };
