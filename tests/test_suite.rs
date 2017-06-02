@@ -5,7 +5,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate url;
 
-use json_schema::JsonSchema;
+use json_schema::{Context, JsonSchema};
 use serde_json::{from_reader, Value};
 use std::fs::{File, read_dir};
 use url::Url;
@@ -35,6 +35,7 @@ fn test_suite() {
             .map(|t| t.is_file())
             .unwrap_or(false))
         .map(|f| f.path());
+    let mut ctx = Context::new();
     for path in all_tests {
         let path = path.canonicalize()
             .expect("Couldn't canonicalize path");
@@ -47,13 +48,13 @@ fn test_suite() {
         for (i, test) in tests.into_iter().enumerate() {
             let uri = base_uri.join(&format!("#/{}/schema", i))
                 .expect("Couldn't create schema URI");
-            test_one(uri, test);
+            test_one(&mut ctx, uri, test);
         }
     }
 }
 
-fn test_one(uri: Url, test: Test) {
-    let schema = JsonSchema::from_value(uri, &test.schema)
+fn test_one(ctx: &mut Context, uri: Url, test: Test) {
+    let schema = ctx.make_schema(uri, &test.schema)
         .expect("Invalid schema");
     for case in test.tests {
         test_case(&schema, case)

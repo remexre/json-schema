@@ -9,10 +9,10 @@ use url::ParseError as UrlParseError;
 ///
 /// The first value in each variant is the JSON value that failed to convert to
 /// a schema or subschema.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FromValueError {
     /// A regex failed to compile.
-    BadPattern(::regex::Error),
+    BadPattern(Value, ::regex::Error),
 
     /// A value had an invalid `$id` keyword.
     ///
@@ -73,8 +73,12 @@ pub enum FromValueError {
 /// against a [`JsonSchema`](struct.JsonSchema.html).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValidationError {
+    /// A `$ref` was found pointing to a nonexistent schema.
+    BadReference(Url),
+
     /// A condition specified in a schema was not met.
     ConditionFailed(Condition),
+
     /// A value was provided somewhere no value can exist, for example to the
     /// `false` schema.
     NoValuesPass(Value),

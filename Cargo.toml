@@ -19,7 +19,9 @@ repository = "remexre/json-schema"
 either = "^1.1.0"
 json-pointer = "^0.3.2"
 lazy_static = { version = "^0.2.8", optional = true }
-regex = "^0.2.2"
+# The changes we need will be published in 0.2.3.
+regex = { version = "^0.2.2", git = "https://github.com/rust-lang/regex.git" }
+# The changes we need are in PR #330.
 serde_json = { version = "^1.0.2", git = "https://github.com/remexre/json.git", branch = "partialord" }
 url = "^1.4.1"
 
