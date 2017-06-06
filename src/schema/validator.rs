@@ -1,5 +1,5 @@
 use errors::ValidationError;
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
 use super::{Condition, Context};
 use url::Url;
 
@@ -26,12 +26,13 @@ impl Validator {
     pub fn validate(&self, ctx: &Context, json: &Value) -> Result<(), ValidationError> {
         match *self {
             Validator::Anything => Ok(()),
-            Validator::Conditions(ref c) => c.iter().map(|c| {
-                c.validate(json)
-            }).collect::<Result<Vec<_>, _>>().map(|_| ()),
+            Validator::Conditions(ref c) => c.iter()
+                .map(|c| c.validate(ctx, json))
+                .collect::<Result<Vec<_>, _>>().map(|_| ()),
             Validator::Nothing => Err(ValidationError::NoValuesPass(json.clone())),
-            Validator::Reference(ref r) => if let Some(schema) = ctx.get(r.to_owned()) {
-                unimplemented!()
+            Validator::Reference(ref r) => if let Some(schema) = ctx.get(r) {
+                // TODO Check for self-referential schema?
+                schema.validate(json)
             } else {
                 Err(ValidationError::BadReference(r.clone()))
             },

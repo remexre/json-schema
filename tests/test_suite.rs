@@ -29,7 +29,7 @@ const TEST_SUITE_DIR: &str = "tests/JSON-Schema-Test-Suite/tests/draft6";
 #[test]
 fn test_suite() {
     let all_tests = read_dir(TEST_SUITE_DIR)
-        .expect("Couldn't find test suite")
+        .expect("Couldn't find test suite -- did you run 'git submodule init; git submodule update'?")
         .filter_map(|r| r.ok())
         .filter(|f| f.file_type()
             .map(|t| t.is_file())

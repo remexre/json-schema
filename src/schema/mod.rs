@@ -3,14 +3,8 @@ mod context;
 mod parse;
 mod validator;
 
-use {FromValueError, ValidationError};
-use either::Either;
-use json_pointer::JsonPointer;
-use regex::Regex;
-use serde_json::{Number, Map, Value};
-use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
-use std::ops::Deref;
+use errors::ValidationError;
+use serde_json::Value;
 use url::Url;
 
 pub use self::condition::{Condition, RegexWrapper, Type};
@@ -35,7 +29,7 @@ impl<'a> JsonSchema<'a> {
 
     /// Validates a JSON value using this schema.
     pub fn validate(&self, json: &Value) -> Result<(), ValidationError> {
-        self.inner.validate(self.ctx, json)
+        self.inner.validator.validate(self.ctx, json)
     }
 }
 
@@ -52,26 +46,9 @@ impl JsonSchemaInner {
         // TODO Add the other JSON Schema properties.
         Value::Object(map)
     }
-
-    fn validate(&self, ctx: &Context, json: &Value) -> Result<(), ValidationError> {
-        unimplemented!()
-    }
 }
 
-#[cfg(feature = "metaschema")]
 lazy_static! {
-    /// A JsonSchema representing the draft-06 metaschema.
-    pub static ref METASCHEMA: JsonSchema<'static> = {
-        /*
-        let ctx = METASCHEMA_CTX.clone();
-        let uri = METASCHEMA_URI.to_owned();
-        let value = &*METASCHEMA_VALUE;
-        JsonSchema::parse(ctx, uri, value, 0)
-            .expect("Failed to construct validator from metaschema")
-        */
-        unimplemented!()
-    };
-
     /// The URI corresponding to the draft-06 metaschema.
     pub static ref METASCHEMA_URI: Url = {
         Url::parse("http://json-schema.org/draft-06/schema#")

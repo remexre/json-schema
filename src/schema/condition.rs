@@ -3,8 +3,9 @@ use errors::ValidationError;
 use regex::Regex;
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
+use std::cmp::Ordering;
 use std::ops::Deref;
-use super::JsonSchemaInner;
+use super::Context;
 use url::Url;
 
 /// A single constraint put on a value by a schema.
@@ -100,11 +101,7 @@ pub enum Condition {
     #[doc(hidden)] // TODO
     Required(Vec<String>),
     #[doc(hidden)] // TODO
-    Properties(BTreeMap<String, Url>),
-    #[doc(hidden)] // TODO
-    PatternProperties(BTreeMap<RegexWrapper, Url>),
-    #[doc(hidden)] // TODO
-    AdditionalProperties(Url),
+    Properties(BTreeMap<String, Url>, BTreeMap<RegexWrapper, Url>, Option<Url>),
     #[doc(hidden)] // TODO
     Dependencies(BTreeMap<String, Either<String, Url>>),
     #[doc(hidden)] // TODO
@@ -137,9 +134,17 @@ impl Condition {
     /// checks should have numerically lower priorities.)
     pub fn priority(&self) -> usize {
         match *self {
-            Condition::Type(_) => 0,
-            Condition::AdditionalProperties(_) => 10,
-            Condition::Properties(_) => 10,
+            Condition::Type(..) => 0,
+            Condition::ExclusiveMaximum(..) => 10,
+            Condition::ExclusiveMinimum(..) => 10,
+            Condition::MaxLength(..) => 10,
+            Condition::Maximum(..) => 10,
+            Condition::MinLength(..) => 10,
+            Condition::Minimum(..) => 10,
+            Condition::Required(..) => 10,
+            Condition::Properties(..) => 20,
+            Condition::AllOf(..) => 100,
+            Condition::AnyOf(..) => 100,
             _ => {
                 println!("No priority set for {:?}, will default to 1000", self);
                 1000
@@ -156,42 +161,115 @@ impl Condition {
     }
 
     /// Validates the value with the condition.
-    pub fn validate(&self, json: &Value) -> Result<(), ValidationError> {
-        match *self {
-            Condition::ExclusiveMinimum(ref m) => if let Value::Number(ref n) = *json {
-                if n > m {
-                    Ok(())
-                } else {
-                    Err(ValidationError::ConditionFailed(self.clone()))
+    pub fn validate(&self, context: &Context, json: &Value) -> Result<(), ValidationError> {
+        let ok = match *self {
+            Condition::AllOf(ref urls) => {
+                for url in urls {
+                    let schema = context.get(url)
+                        .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                    schema.validate(json)?
                 }
-            } else {
-                Ok(())
+                true
             },
-            Condition::Pattern(RegexWrapper(ref re)) => if let Value::String(ref s) = *json {
-                if re.is_match(s) {
-                    Ok(())
-                } else {
-                    Err(ValidationError::ConditionFailed(self.clone()))
-                }
-            } else {
-                Ok(())
-            },
-            Condition::Properties(ref props) => if let Value::Object(ref obj) = *json {
-                for (k, s) in props {
-                    if let Some(v) = obj.get(k) {
-                        unimplemented!()
+            Condition::AnyOf(ref urls) => {
+                for url in urls {
+                    let schema = context.get(url)
+                        .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                    if schema.validate(json).is_ok() {
+                        return Ok(());
                     }
                 }
-                Ok(())
-            } else {
-                Ok(())
+                false
             },
-            Condition::Type(ref types) => if types.iter().any(|t| t.type_of(json)) {
-                Ok(())
+            Condition::Const(ref v) => json == v,
+            Condition::Contains(ref uri) => if let Value::Array(ref arr) = *json {
+                let schema = context.get(uri)
+                    .ok_or_else(|| ValidationError::BadReference(uri.clone()))?;
+                arr.iter().any(|v| schema.validate(v).is_ok())
             } else {
-                Err(ValidationError::ConditionFailed(self.clone()))
+                true
             },
+            Condition::ExclusiveMinimum(ref m) => if let Value::Number(ref n) = *json {
+                n > m
+            } else {
+                true
+            },
+            Condition::Items(ref items, ref additional) => if let Value::Array(ref arr) = *json {
+                for (i, json) in arr.iter().enumerate() {
+                    if let Some(url) = items.get(i).or(additional.as_ref()) {
+                        let schema = context.get(url)
+                            .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                        schema.validate(json)?
+                    }
+                }
+                true
+            } else {
+                true
+            },
+            Condition::MaxLength(n) => if let Value::String(ref s) = *json {
+                (s.chars().count() as u64) <= n
+            } else {
+                true
+            },
+            Condition::Maximum(ref m) => if let Value::Number(ref n) = *json {
+                n <= m
+            } else {
+                true
+            },
+            Condition::MinLength(n) => if let Value::String(ref s) = *json {
+                (s.chars().count() as u64) >= n
+            } else {
+                true
+            },
+            Condition::Minimum(ref n) => if let Value::Number(ref num) = *json {
+                num >= n
+            } else {
+                true
+            },
+            Condition::Pattern(RegexWrapper(ref re)) => if let Value::String(ref s) = *json {
+                re.is_match(s)
+            } else {
+                true
+            },
+            Condition::Properties(ref props, ref patterns, ref additional) => if let Value::Object(ref obj) = *json {
+                for (k, json) in obj {
+                    let mut is_additional = true;
+                    if let Some(url) = props.get(k) {
+                        is_additional = false;
+                        let schema = context.get(url)
+                            .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                        schema.validate(json)?
+                    }
+                    for (_, url) in patterns.iter().filter(|&(re, _)| re.is_match(k)) {
+                        is_additional = false;
+                        let schema = context.get(url)
+                            .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                        schema.validate(json)?
+                    }
+                    if is_additional {
+                        if let Some(url) = additional.as_ref() {
+                            let schema = context.get(url)
+                                .ok_or_else(|| ValidationError::BadReference(url.clone()))?;
+                            schema.validate(json)?
+                        }
+                    }
+                }
+                true
+            } else {
+                true
+            },
+            Condition::Required(ref props) => if let Value::Object(ref obj) = *json {
+                !props.iter().any(|p| obj.get(p).is_none())
+            } else {
+                true
+            },
+            Condition::Type(ref types) => types.iter().any(|t| t.type_of(json)),
             _ => panic!("Condition {:?} not implemented", self),
+        };
+        if ok {
+            Ok(())
+        } else {
+            Err(ValidationError::ConditionFailed(self.clone()))
         }
     }
 }
@@ -257,8 +335,22 @@ impl Deref for RegexWrapper {
     fn deref(&self) -> &Regex { &self.0 }
 }
 
+impl Eq for RegexWrapper {}
+
+impl Ord for RegexWrapper {
+    fn cmp(&self, other: &RegexWrapper) -> Ordering {
+        unimplemented!()
+    }
+}
+
 impl PartialEq for RegexWrapper {
     fn eq(&self, other: &RegexWrapper) -> bool {
         self.as_str() == other.as_str()
+    }
+}
+
+impl PartialOrd for RegexWrapper {
+    fn partial_cmp(&self, other: &RegexWrapper) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }

@@ -1,6 +1,5 @@
 extern crate json_schema;
 
-#[cfg(feature = "metaschema")]
 #[ignore] // TODO Reenable
 #[test]
 fn metaschema_validates_itself() {

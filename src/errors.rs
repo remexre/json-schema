@@ -41,9 +41,7 @@ pub enum FromValueError {
     /// RFC](https://tools.ietf.org/html/draft-wright-json-schema-01#section-4.4).
     InvalidSchemaType(Value),
 
-    /// The schema failed to validate against the metaschema. This is only
-    /// possible with the `metaschema` feature enabled.
-    #[cfg(feature = "metaschema")]
+    /// The schema failed to validate against the metaschema.
     MetaschemaFailedToValidate(ValidationError),
 
     /// A subschema used the `$schema` keyword.
